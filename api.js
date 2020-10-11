@@ -1,35 +1,23 @@
-var express = require('express');
-var app = express();
-var fs = require('fs')
-var port = process.env.PORT || 7800;
-var bodParser = require('body-parser');
-var morgan=require('morgan')
-var mongo = require('mongodb');
-var path = require('path')
-var MongoClient = mongo.MongoClient
-var mongourl = "mongodb+srv://shardul_2323:Shardul@2000@cluster0.9rybt.mongodb.net/shardul?retryWrites=true&w=majority";
-var cors = require('cors');
-var db;
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 7800;
+const mongo = require('mongodb');
+const MongoClient = mongo.MongoClient;
+const mongoUrl =  "mongodb+srv://shardul_2323:Shardul@2000@cluster0.9rybt.mongodb.net/shardul?retryWrites=true&w=majority";
 
+const cors = require('cors');
+const bodyParser = require('body-parser');
+let db;
+
+app.use(bodyParser.urlencoded({extended:true}));
+app.use(bodyParser.json());
 app.use(cors());
 
-app.use(bodParser.urlencoded({extended:true}));
-app.use(bodParser.json())
-
-app.use(morgan('tiny'))
-
-var accessLogStream = fs.createWriteStream(path.join('F:\\shardul\\day12\\day11-12', 'access.log'), { flags: 'a' })
-app.use(morgan('combined', { stream: accessLogStream }))
-
-app.get('/health',(req,res) => {
-    res.send("Api is working")
-});
-
 app.get('/',(req,res) => {
-    res.send(`<a href="http://localhost:7800/location" target="_blank">City</a> <br/> <a href="http://localhost:7800/mealtype" target="_blank">MealType</a> <br/> <a href="http://localhost:7800/cuisine" target="_blank">Cuisine</a> <br/> <a href="http://localhost:7800/restaurents" target="_blank">Restaurents</a> <br/> <a href="http://localhost:7800/orders" target="_blank">Orders</a>`)
+    res.send("<div><a href='http://localhost:8900/location'>Location</a><br/><a href='http://localhost:8900/mealtype'>MealType</a><br/><a href='http://localhost:8900/cuisine'>Cuisine</a><br/><a href='http://localhost:8900/restaurant'>Restaurant</a></div>")
 })
 
-//List of city
+//City List
 app.get('/location',(req,res) => {
     db.collection('city').find({}).toArray((err,result) => {
         if(err) throw err;
@@ -37,112 +25,98 @@ app.get('/location',(req,res) => {
     })
 })
 
-//mealtype
+//Meal Type
 app.get('/mealtype',(req,res) => {
-    db.collection('mealType').find({}).toArray((err,result) => {
+    db.collection('mealtype').find({}).toArray((err,result) =>{
         if(err) throw err;
         res.send(result)
     })
 })
 
-//cusine
+//Cusine
 app.get('/cuisine',(req,res) => {
-    db.collection('cuisine').find({}).toArray((err,result) => {
+    db.collection('cuisine').find({}).toArray((err,result) =>{
         if(err) throw err;
         res.send(result)
     })
 })
 
-//restaurents
-app.get('/restaurents',(req,res) => {
-    var condition = {};
+//Restaurant
+app.get('/restaurant',(req,res) => {
+    var query = {};
     if(req.query.city && req.query.mealtype){
-        condition = {city:req.query.city,"type.mealtype":req.query.mealtype}
+        query={city:req.query.city,"type.mealtype":req.query.mealtype}
     }
     else if(req.query.city){
-        condition={city:req.query.city}
-    } else if(req.query.mealtype){
-        condition={"type.mealtype":req.query.mealtype}
+        query={city:req.query.city}
     }
-    else{
-        condition={}
+    else if(req.query.mealtype){
+        query={"type.mealtype":req.query.mealtype}
     }
-    db.collection('restaurent').find(condition).toArray((err,result) => {
+    db.collection('restaurent').find(query).toArray((err,result) =>{
         if(err) throw err;
         res.send(result)
     })
 })
 
-//RestaurentDetai+
-app.get('/restaurantdetails/:id',(req,res) => {
+app.get('/restaurantDetails/:id',(req,res) => {
+    console.log(req.params.id)
     var query = {_id:req.params.id}
-    db.collection('restaurent').find(query).toArray((err,result) => {
+    db.collection('restaurent').find(query).toArray((err,result) =>{
+        if(err) throw err;
         res.send(result)
     })
-})
+});
 
-//RestaurentList
-app.get('/restaurantList/:mealtype',(req,res) => {
-    var condition = {};
-    if(req.query.cuisine){
-        condition={"type.mealtype":req.params.mealtype,"Cuisine.cuisine":req.query.cuisine}
+////////////////////////Listing Page Api//////////////
+app.get('/restaurantlist/:mealtype', (req,res) => {
+    var query = {"type.mealtype":req.params.mealtype};
+    var sort = {cost:-1}
+    if(req.query.city && req.query.sort){
+        query={"type.mealtype":req.params.mealtype,"city":req.query.city}
+        sort = {cost:Number(req.query.sort)}
+    }else if(req.query.cuisine  && req.query.sort){
+        query={"type.mealtype":req.params.mealtype,"Cuisine.cuisine":(req.query.cuisine)}
+        sort = {cost:Number(req.query.sort)}
+    }else if(req.query.lcost && req.query.hcost && req.query.sort){
+        query={"type.mealtype":req.params.mealtype,"cost":{$lt:parseInt(req.query.lcost),$gt:parseInt(req.query.hcost)} }
+        sort = {cost:Number(req.query.sort)}
     }else if(req.query.city){
-        condition={"type.mealtype":req.params.mealtype,city:req.query.city}
+        query={"type.mealtype":req.params.mealtype,"city":req.query.city}
+    }else if(req.query.cuisine){
+        query={"type.mealtype":req.params.mealtype,"Cuisine.cuisine":(req.query.cuisine)}
     }else if(req.query.lcost && req.query.hcost){
-        condition={"type.mealtype":req.params.mealtype,cost:{$lt:Number(req.query.hcost),$gt:Number(req.query.lcost)}}
+        query={"type.mealtype":req.params.mealtype,"cost":{$lt:parseInt(req.query.lcost),$gt:parseInt(req.query.hcost)} }
     }
-    else{
-        condition= {"type.mealtype":req.params.mealtype}
-    }
-    db.collection('restaurent').find(condition).toArray((err,result) => {
+    db.collection('restaurent').find(query).sort(sort).toArray((err,result) =>{
         if(err) throw err;
         res.send(result)
     })
-})
+});
 
-//PlaceOrder
-app.post('/placeorder',(req,res) => {
-    console.log(req.body);
-    db.collection('orders').insert(req.body,(err,result) => {
-        if(err) throw err;
-        res.send('posted')
-    })
-})
-
-//order
+//orders
 app.get('/orders',(req,res) => {
-    db.collection('orders').find({}).toArray((err,result) => {
+    db.collection('orders').find({}).toArray((err,result) =>{
         if(err) throw err;
         res.send(result)
     })
-})
+});
 
-///Not Require in project
-//Delete Orders
-app.delete('/deleteorders',(req,res) => {
-    db.collection('orders').remove({_id:req.body.id},(err,result) => {
-        if(err) throw err;
-        res.send('data deleted')
+//placeorder
+app.post('/placeorder',(req,res) => {
+    db.collection('orders').insertOne(req.body,(err,result) => {
+        if(err){
+            throw err
+        }else{
+            res.send('Data Added')
+        }
     })
-})
+});
 
-//Update orders
-app.put('/updateorders',(req,res) => {
-    db.collection('orders').update({_id:req.body._id},
-        {
-            $set:{
-                name:req.body.name,
-                address:req.body.address
-            }
-        },(err,result) => {
-            if(err) throw err;
-            res.send('data updated')
-        })
-})
 
-MongoClient.connect(mongourl,(err,connection) => {
-    if(err) throw err;
-    db = connection.db('shardul');
+MongoClient.connect(mongoUrl,(err,client) => {
+    if(err) console.log(err);
+    db = client.db('shardul');
     app.listen(port,(err) => {
         if(err) throw err;
         console.log(`Server is running on port ${port}`)
