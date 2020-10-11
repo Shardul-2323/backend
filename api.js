@@ -1,7 +1,7 @@
 var express = require('express');
 var app = express();
 var fs = require('fs')
-var port = 7800;
+var port = process.env.PORT || 7800;
 var bodParser = require('body-parser');
 var morgan=require('morgan')
 var mongo = require('mongodb');
